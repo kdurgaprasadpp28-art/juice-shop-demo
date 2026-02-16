@@ -6,12 +6,12 @@ on:
   pull_request:
     branches: [ "main", "master", "develop" ]
   schedule:
-    - cron: "30 1 * * 0"   # Sun 01:30 UTC
+    - cron: "30 1 * * 0"   # Sunday 01:30 UTC
   workflow_dispatch:
 
 permissions:
   contents: read
-  security-events: write
+  security-events: write     # required to upload results
   actions: read
 
 jobs:
@@ -23,26 +23,26 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [ 'javascript', 'typescript' ]
+        language: [ "javascript", "typescript" ]
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Optional but recommended for JS/TS repos
+      # Recommended for JS/TS: install deps for better code resolution
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'npm'
+          node-version: "18"
+          cache: "npm"
 
       - name: Install dependencies (best-effort)
         run: |
-          if [ -f package-lock.json ]; then npm ci; 
-          elif [ -f package.json ]; then npm install; 
+          if [ -f package-lock.json ]; then npm ci;
+          elif [ -f package.json ]; then npm install;
           fi
 
-      # Initialize CodeQL with JS/TS and tighten the scope
+      # Initialize CodeQL (skip Autobuild for JS/TS)
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
@@ -59,8 +59,7 @@ jobs:
             **/.turbo/**
             **/.cache/**
 
-      # For JS/TS, a build is not strictly required; skip autobuild.
-      # If your repo has a build step (e.g., Angular/TS), uncomment this:
+      # If your project truly needs a build (e.g., Angular), uncomment:
       # - name: Build (if applicable)
       #   run: |
       #     if npm run | grep -q " build"; then npm run build; fi
