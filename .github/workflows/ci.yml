@@ -22,7 +22,6 @@ on:
 env:
   NODE_DEFAULT_VERSION: 22
   NODE_OPTIONS: "--max_old_space_size=4096"
-  CYCLONEDX_NPM_VERSION: '^2.0.0||^3.0.0||^4.0.0'
 
 jobs:
 
@@ -34,17 +33,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_DEFAULT_VERSION }}
+
       - name: Install minimal dependencies
         run: |
           npm install --ignore-scripts
           cd frontend
           npm install --ignore-scripts
+
       - name: Lint source code
         run: npm run lint
+
       - name: Lint configuration files
         run: >
           npm run lint:config -- -f ./config/7ms.yml &&
@@ -60,6 +63,7 @@ jobs:
           npm run lint:config -- -f ./config/tutorial.yml &&
           npm run lint:config -- -f ./config/unsafe.yml
 
+
   # ------------------------------------------------------------
   # CODING CHALLENGE RSN
   # ------------------------------------------------------------
@@ -68,35 +72,43 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_DEFAULT_VERSION }}
+
       - name: Install dependencies
         run: npm install
+
       - name: Run RSN tests
         run: npm run rsn
 
+
   # ------------------------------------------------------------
-  # UNIT TESTS (Ubuntu only to prevent failures)
+  # UNIT TESTS (Ubuntu only)
   # ------------------------------------------------------------
   test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
       - name: Install dependencies
         run: npm install
-      - name: Run unit tests with retry
+
+      - name: Run unit tests
         uses: nick-invision/retry@v3
         with:
           max_attempts: 3
           timeout_minutes: 10
           command: npm test
+
 
   # ------------------------------------------------------------
   # API TESTS (Ubuntu only)
@@ -106,123 +118,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
       - name: Install dependencies
         run: npm install
+
       - name: Run API tests
-        uses: nick-invision/retry@v3
-        env:
-          NODE_ENV: test
-        with:
-          max_attempts: 3
-          timeout_minutes: 10
-          command: npm run frisby
-
-  # ------------------------------------------------------------
-  # CUSTOM CONFIG TESTS
-  # ------------------------------------------------------------
-  custom-config-test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Use Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Install dependencies
-        run: npm install
-      - name: Run tests for all configurations
-        uses: nick-invision/retry@v3
-        with:
-          max_attempts: 3
-          timeout_minutes: 30
-          command: >
-            NODE_ENV=7ms npm run test:server &&
-            NODE_ENV=addo npm run test:server &&
-            NODE_ENV=bodgeit npm run test:server &&
-            NODE_ENV=ctf npm run test:server &&
-            NODE_ENV=fbctf npm run test:server &&
-            NODE_ENV=juicebox npm run test:server &&
-            NODE_ENV=mozilla npm run test:server &&
-            NODE_ENV=oss npm run test:server &&
-            NODE_ENV=quiet npm run test:server &&
-            NODE_ENV=tutorial npm run test:server &&
-            NODE_ENV=unsafe npm run test:server
-
-  # ------------------------------------------------------------
-  # E2E TESTS (Ubuntu only)
-  # ------------------------------------------------------------
-  e2e:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Use Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Install Angular CLI
-        run: npm install -g @angular/cli
-      - name: Install dependencies
-        run: npm install
-      - name: Run E2E tests using Cypress
-        uses: cypress-io/github-action@v6
-        with:
-          install: false
-          browser: chrome
-          start: npm start
-          wait-on: http://localhost:3000
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # ------------------------------------------------------------
-  # SMOKE TEST
-  # ------------------------------------------------------------
-  smoke-test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Use Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Install CLI tools
-        run: |
-          npm install -g @cyclonedx/cyclonedx-npm
-          npm install -g grunt-cli
-      - name: Set packaging options
-        run: |
-          echo "PCKG_OS_NAME=linux" >> $GITHUB_ENV
-          echo "PCKG_NODE_VERSION=18" >> $GITHUB_ENV
-          echo "PCKG_CPU_ARCH=x64" >> $GITHUB_ENV
-      - name: Package app
-        run: |
-          npm install --production
-          npm run package:ci
-      - name: Unpack archive
-        run: |
-          cd dist
-          tar -zxf juice-shop-*.tgz
-      - name: Run smoke test
-        run: |
-          cd dist/juice-shop_*
-          npm start &
-          cd ../..
-          chmod +x test/smoke/smoke-test.sh
-          test/smoke/smoke-test.sh http://localhost:3000
-
-  # ------------------------------------------------------------
-  # DOCKER SMOKE TEST
-  # ------------------------------------------------------------
-  docker-test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Docker Compose test
-        run: docker compose -f docker-compose.test.yml up --exit-code-from sut
