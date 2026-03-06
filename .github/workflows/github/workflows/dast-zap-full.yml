@@ -1,0 +1,90 @@
+name: DevSecOps DAST Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  zap-baseline:
+    name: OWASP ZAP Baseline Scan
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: OWASP ZAP Baseline Scan
+      uses: zaproxy/action-baseline@v0.9.0
+      with:
+        target: "https://your-app-url.com"
+        docker_name: "owasp/zap2docker-stable"
+        rules_file_name: ".zap/rules.tsv"
+        cmd_options: "-a"  # active/passive scanning
+
+    - name: Upload ZAP Report
+      uses: actions/upload-artifact@v4
+      with:
+        name: zap-baseline-report
+        path: report.html
+
+  zap-full-scan:
+    name: OWASP ZAP Full Scan
+    runs-on: ubuntu-latest
+    needs: zap-baseline
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: OWASP ZAP Full Scan
+      uses: zaproxy/action-full-scan@v0.5.0
+      with:
+        target: "https://your-app-url.com"
+
+    - name: Upload ZAP Full Scan Report
+      uses: actions/upload-artifact@v4
+      with:
+        name: zap-fullscan-report
+        path: report.html
+
+  nuclei-scan:
+    name: Nuclei DAST Scan
+    runs-on: ubuntu-latest
+    needs: zap-full-scan
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Nuclei
+        run: |
+          curl -s https://api.github.com/repos/projectdiscovery/nuclei/releases/latest \
+            | grep browser_download_url \
+            | grep linux_amd64.zip \
+            | cut -d '"' -f 4 \
+            | wget -qi -
+          unzip nuclei*linux_amd64.zip
+          sudo mv nuclei /usr/local/bin/
+
+      - name: Run Nuclei scan
+        run: |
+          nuclei -u https://your-app-url.com -o nuclei-report.txt
+
+      - name: Upload Nuclei Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuclei-report
+          path: nuclei-report.txt
+
+  notify:
+    name: Notify Security Team
+    runs-on: ubuntu-latest
+    needs: nuclei-scan
+
+    steps:
+    - name: Send Notification
+      run: |
+        echo "DAST Pipeline Completed. Reports attached."
